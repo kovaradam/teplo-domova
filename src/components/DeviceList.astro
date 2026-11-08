@@ -1,0 +1,40 @@
+---
+import HeaterCard from "@/components/HeaterCard.astro";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { loadDevices, UpstreamError, type Device } from "@/lib/cozytouch.ts";
+import { endSession, getSession } from "@/lib/session.ts";
+
+// Rendered as a server island, so the page shows its loading fallback until this is ready
+const session = getSession(Astro.cookies);
+let devices: Device[] = [];
+let error = "";
+let expired = !session;
+if (session) {
+  try {
+    devices = await loadDevices(session);
+  } catch (e) {
+    console.error("Device list:", e);
+    if (e instanceof UpstreamError && e.status === 401) {
+      endSession(Astro.cookies);
+      expired = true;
+    } else {
+      error = (e as Error).message;
+    }
+  }
+}
+---
+
+{expired ? (
+  <p>
+    Your session has expired. <a href="/login" class="underline">Log in again</a>
+    <script is:inline>location.href = "/login";</script>
+  </p>
+) : error ? (
+  <Alert variant="destructive">
+    <AlertDescription className="text-destructive">{error}</AlertDescription>
+  </Alert>
+) : devices.length === 0 ? (
+  <p class="text-muted-foreground">No heaters found in your account.</p>
+) : (
+  devices.map((device) => <HeaterCard device={device} />)
+)}

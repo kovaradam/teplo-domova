@@ -1,0 +1,15 @@
+---
+import Layout from "@/layouts/BaseLayout.astro";
+import DeviceList from "@/components/DeviceList.astro";
+import DevicesLoading from "@/components/DevicesLoading.astro";
+import { ScheduleDrawer } from "@/components/ScheduleDrawer";
+---
+
+<Layout title="Heaters">
+  <section class="mx-auto flex max-w-[38rem] flex-col gap-12 pt-10 pb-16">
+    <DeviceList server:defer>
+      <DevicesLoading slot="fallback" />
+    </DeviceList>
+  </section>
+  <ScheduleDrawer client:load />
+</Layout>

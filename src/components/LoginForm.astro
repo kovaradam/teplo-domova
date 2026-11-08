@@ -1,0 +1,48 @@
+---
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+
+interface Props {
+  /** Email to fill back in after a failed attempt. */
+  email?: string;
+  /** Message shown after an error. */
+  error?: string;
+}
+
+const { email, error } = Astro.props;
+---
+
+<form method="post" class="flex flex-col gap-5">
+  <div class="flex flex-col gap-2">
+    <Label htmlFor="email">Email</Label>
+    <Input
+      id="email"
+      type="email"
+      name="email"
+      defaultValue={email}
+      placeholder="you@example.com"
+      autoComplete="username"
+      required
+      className="h-10"
+    />
+  </div>
+  <div class="flex flex-col gap-2">
+    <Label htmlFor="password">Password</Label>
+    <Input
+      id="password"
+      type="password"
+      name="password"
+      autoComplete="current-password"
+      required
+      className="h-10"
+    />
+  </div>
+  {error && (
+    <Alert variant="destructive">
+      <AlertDescription className="text-destructive">{error}</AlertDescription>
+    </Alert>
+  )}
+  <Button type="submit" size="lg" className="h-10 w-full">Log in</Button>
+</form>

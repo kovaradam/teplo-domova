@@ -1,0 +1,54 @@
+---
+import {
+  Cloud,
+  CloudDrizzle,
+  CloudFog,
+  CloudLightning,
+  CloudMoon,
+  CloudRain,
+  CloudSnow,
+  CloudSun,
+  Moon,
+  Sun,
+} from "lucide-react";
+import { describeWeather, type Weather } from "@/lib/weather.ts";
+
+interface Props {
+  /** Current weather outside. */
+  weather: Weather;
+}
+
+const { weather } = Astro.props;
+
+const { code, isDay } = weather;
+const Icon =
+  code === 0
+    ? isDay
+      ? Sun
+      : Moon
+    : code <= 2
+      ? isDay
+        ? CloudSun
+        : CloudMoon
+      : code === 3
+        ? Cloud
+        : code <= 48
+          ? CloudFog
+          : code <= 57
+            ? CloudDrizzle
+            : code <= 67 || (code >= 80 && code <= 82)
+              ? CloudRain
+              : code <= 86
+                ? CloudSnow
+                : CloudLightning;
+const description = describeWeather(code);
+---
+
+<p class="flex items-center gap-1.5 text-sm text-muted-foreground">
+  <Icon className="size-4" aria-hidden="true" />
+  <span class="sr-only">Outside:</span>
+  <span class="font-medium text-foreground tabular-nums">
+    {weather.temperature} °C
+  </span>
+  <span class="hidden sm:inline">{description}</span>
+</p>

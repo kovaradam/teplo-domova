@@ -1,0 +1,560 @@
+---
+import TemperatureStepper from "@/components/TemperatureStepper.astro";
+import type { Period } from "@/lib/cozytouch.ts";
+import { formatTemperature } from "@/utils/temperature.ts";
+import { DAY, DAY_LABELS, toMinutes } from "@/utils/schedule.ts";
+
+interface Props {
+  /** Comfort periods for 7 days, Monday first. */
+  schedule: Period[][];
+  /** Comfort temperature in °C. */
+  comfort?: number | null;
+  /** Eco temperature in °C. */
+  eco?: number | null;
+  /** Device the schedule belongs to. Required for any editing. */
+  deviceId?: string;
+  /** Allow editing comfort periods with a mouse or trackpad. */
+  editable?: boolean;
+  /** Allow changing the comfort temperature. */
+  comfortEditable?: boolean;
+  /** Allow changing the eco temperature. */
+  ecoEditable?: boolean;
+  /** Highest setpoint the device accepts. */
+  max?: number | null;
+}
+
+const {
+  schedule,
+  comfort,
+  eco,
+  deviceId,
+  editable = false,
+  comfortEditable = false,
+  ecoEditable = false,
+  max,
+} = Astro.props;
+
+const percent = (m: number) => `${(m / DAY) * 100}%`;
+const describe = (p: Period) =>
+  `${p.start}–${p.end === "00:00" ? "24:00" : p.end}`;
+
+const date = new Date();
+const today = (date.getDay() + 6) % 7;
+const now = date.getHours() * 60 + date.getMinutes();
+---
+
+<div
+  class="group/week flex w-full flex-col gap-2 data-dragging:cursor-ew-resize data-dragging:select-none [&[data-dragging]_*]:cursor-ew-resize"
+  data-week
+  data-device={deviceId}
+  data-schedule={deviceId && JSON.stringify(schedule)}
+  data-editable={(deviceId && editable) || undefined}
+>
+  <div class="grid grid-cols-[auto_auto_1fr] items-center justify-items-start gap-x-2 gap-y-2 text-sm text-muted-foreground sm:flex sm:flex-wrap sm:gap-x-5">
+    <span class="contents sm:inline-flex sm:items-center sm:gap-[0.5em]">
+      <span class="size-[0.8em] rounded-[0.2em] bg-primary"></span>
+      Comfort
+      {deviceId && comfortEditable && comfort != null ? (
+        <TemperatureStepper
+          deviceId={deviceId}
+          value={comfort}
+          size="small"
+          label="Comfort temperature"
+          max={max}
+        />
+      ) : (
+        formatTemperature(comfort)
+      )}
+    </span>
+    <span class="contents sm:inline-flex sm:items-center sm:gap-[0.5em]">
+      <span class="size-[0.8em] rounded-[0.2em] bg-muted"></span>
+      Eco
+      {deviceId && ecoEditable && eco != null ? (
+        <TemperatureStepper
+          deviceId={deviceId}
+          value={eco}
+          size="small"
+          setting="eco"
+          label="Eco temperature"
+          max={max}
+        />
+      ) : (
+        formatTemperature(eco)
+      )}
+    </span>
+  </div>
+  <div class="mt-2 flex flex-col gap-1 group-data-saving/week:opacity-60">
+    {schedule.map((periods, day) => (
+      <div class="grid grid-cols-[2.5rem_1fr] items-center gap-3">
+        <span
+          class:list={[
+            "text-sm",
+            day === today
+              ? "font-bold text-foreground"
+              : "text-muted-foreground",
+          ]}
+        >
+          {DAY_LABELS[day]}
+        </span>
+        <span
+          class="group/bar relative h-[0.8rem] overflow-hidden rounded-[0.25rem] bg-muted outline-none focus-visible:ring-3 focus-visible:ring-ring/50 group-data-editing/week:h-5 group-data-editing/week:cursor-copy group-data-touch-editing/week:h-7 border inset-shadow-2xs"
+          data-bar
+        >
+          {periods.map((p, index) => (
+            <span
+              class="group/period absolute inset-y-0 bg-primary group-data-editing/week:cursor-default"
+              data-period={index}
+              style={`left: ${percent(toMinutes(p.start))}; width: ${percent(toMinutes(p.end, true) - toMinutes(p.start))};`}
+            ></span>
+          ))}
+          {day === today && (
+            <span
+              class="pointer-events-none absolute inset-y-0 w-0.5 bg-destructive"
+              style={`left: ${percent(now)};`}
+            ></span>
+          )}
+          <span class="sr-only" data-description>
+            {periods.length
+              ? periods.map(describe).join(", ")
+              : "No comfort periods"}
+          </span>
+        </span>
+      </div>
+    ))}
+    <div
+      class="relative ml-[3.25rem] flex justify-between text-sm text-muted-foreground"
+      aria-hidden="true"
+      data-hours
+    >
+      <span>0</span>
+      <span>6</span>
+      <span>12</span>
+      <span>18</span>
+      <span>24</span>
+    </div>
+  </div>
+</div>
+
+<script>
+  import { sendCommand } from "@/utils/command.ts";
+  import type { Period } from "@/lib/cozytouch.ts";
+  import {
+    DAY,
+    DAY_NAMES,
+    MAX_PERIODS,
+    STEP,
+    toMinutes,
+    toTime,
+    type ScheduleEditRequest,
+  } from "@/utils/schedule.ts";
+
+  type Span = { start: number; end: number };
+
+  const pointerEditing = matchMedia("(pointer: fine)").matches;
+  const hovering = matchMedia("(hover: hover)").matches;
+  const percent = (m: number) => `${(m / DAY) * 100}%`;
+  const display = (m: number) => (m === DAY ? "24:00" : toTime(m));
+  const describe = (s: Span) => `${display(s.start)}–${display(s.end)}`;
+  const clamp = (v: number, low: number, high: number) =>
+    Math.min(high, Math.max(low, v));
+
+  for (const week of document.querySelectorAll<HTMLElement>(
+    "[data-week][data-schedule]",
+  )) {
+    const bars = [...week.querySelectorAll<HTMLElement>("[data-bar]")];
+    const { device } = week.dataset;
+    const schedule: Span[][] = (
+      JSON.parse(week.dataset.schedule!) as Period[][]
+    ).map((periods) =>
+      periods.map((p) => ({
+        start: toMinutes(p.start),
+        end: toMinutes(p.end, true),
+      })),
+    );
+    const toPeriods = (spans: Span[]) =>
+      spans.map((s) => ({ start: toTime(s.start), end: toTime(s.end) }));
+    const dragging = () => "dragging" in week.dataset;
+
+    const readout = document.createElement("span");
+    readout.className =
+      "pointer-events-none absolute top-0 rounded-[0.25rem] bg-foreground px-[0.4em] whitespace-nowrap text-card";
+    readout.hidden = true;
+    week.querySelector("[data-hours]")!.append(readout);
+    const guide = document.createElement("span");
+    guide.className =
+      "pointer-events-none absolute inset-y-0 w-px bg-foreground/60";
+
+    const showTime = (bar: HTMLElement, minute: number) => {
+      readout.textContent = display(minute);
+      readout.style.left = percent(minute);
+      readout.style.translate =
+        minute < 90 ? "0" : minute > DAY - 90 ? "-100%" : "-50%";
+      readout.hidden = false;
+      guide.style.left = percent(minute);
+      bar.append(guide);
+    };
+    const minuteAt = (bar: HTMLElement, clientX: number) => {
+      const rect = bar.getBoundingClientRect();
+      return ((clientX - rect.left) / rect.width) * DAY;
+    };
+
+    const createLabels = (bar: HTMLElement) => {
+      const width = bar.getBoundingClientRect().width;
+      const labels = [0, 1].map(() => {
+        const label = document.createElement("span");
+        label.className =
+          "pointer-events-none absolute inset-y-0 flex items-center text-xs leading-none whitespace-nowrap tabular-nums";
+        bar.append(label);
+        return label;
+      });
+      return {
+        // Each time sits outside its edge, or just inside the period when the bar runs out
+        place: (span: Span) =>
+          labels.forEach((label, i) => {
+            const minute = i === 0 ? span.start : span.end;
+            label.textContent = display(minute);
+            const room = ((label.offsetWidth + 5) / width) * DAY;
+            const outside = i === 0 ? minute >= room : DAY - minute >= room;
+            const before = i === 0 ? outside : !outside;
+            label.style.left = percent(minute);
+            label.style.translate = before
+              ? "calc(-100% - 0.3rem) 0"
+              : "0.3rem 0";
+            label.classList.toggle("text-muted-foreground", outside);
+            label.classList.toggle("text-primary-foreground", !outside);
+          }),
+        remove: () => labels.forEach((label) => label.remove()),
+      };
+    };
+
+    let hovered: {
+      period: Element;
+      labels: ReturnType<typeof createLabels>;
+    } | null = null;
+    const hideTime = () => {
+      readout.hidden = true;
+      guide.remove();
+      hovered?.labels.remove();
+      hovered = null;
+    };
+
+    if (hovering) {
+      bars.forEach((bar, day) => {
+        bar.addEventListener("pointermove", (event) => {
+          if (event.pointerType === "touch" || dragging()) return;
+          const minute = Math.floor(minuteAt(bar, event.clientX) / STEP) * STEP;
+          showTime(bar, clamp(minute, 0, DAY));
+
+          const period = (event.target as Element).closest<HTMLElement>(
+            "[data-period]",
+          );
+          if (period === hovered?.period) return;
+          hovered?.labels.remove();
+          hovered = null;
+          if (!period) return;
+          const labels = createLabels(bar);
+          labels.place(schedule[day][Number(period.dataset.period)]);
+          hovered = { period, labels };
+        });
+        bar.addEventListener("pointerleave", () => {
+          if (!dragging()) hideTime();
+        });
+      });
+    }
+
+    if (!("editable" in week.dataset)) continue;
+    // Mouse and trackpad drag the edges; touch screens tap and edit in the drawer
+    if (pointerEditing) week.dataset.editing = "";
+    else week.dataset.touchEditing = "";
+
+    const place = (element: HTMLElement, s: Span) => {
+      element.style.left = percent(s.start);
+      element.style.width = percent(s.end - s.start);
+    };
+
+    // Where a new period would go: after the last one (08:00 on an empty day), else the first gap
+    const freeStart = (day: number) => {
+      const spans = schedule[day];
+      if (spans.length >= MAX_PERIODS) return null;
+      if (!spans.length) return 8 * 60;
+      const fits = (start: number) =>
+        start < DAY &&
+        !spans.some((s) => s.start <= start && start < s.end) &&
+        (spans.find((s) => s.start > start)?.start ?? DAY) - start >= STEP;
+      const after = spans.at(-1)!.end;
+      if (fits(after)) return after;
+      return [0, ...spans.map((s) => s.end)].find(fits) ?? null;
+    };
+    const newEnd = (day: number, start: number) =>
+      Math.min(
+        start + 60,
+        schedule[day].find((s) => s.start > start)?.start ??
+          (start === 0 ? DAY - STEP : DAY),
+      );
+
+    // Arrow keys pick a period in the focused row; the last position adds a new one
+    const selected = schedule.map(() => 0);
+    const highlight = (day: number) => {
+      const bar = bars[day];
+      const count = schedule[day].length;
+      const add = freeStart(day);
+      const positions = count + (add === null ? 0 : 1);
+      selected[day] = Math.max(0, Math.min(selected[day], positions - 1));
+      bar.querySelectorAll<HTMLElement>("[data-period]").forEach((period) => {
+        // shadcn's data-selected variant matches data-selected="true"
+        if (Number(period.dataset.period) === selected[day])
+          period.dataset.selected = "true";
+        else delete period.dataset.selected;
+      });
+      bar.querySelector("[data-candidate]")?.remove();
+      let current: string;
+      if (add !== null && selected[day] === count) {
+        const preview = document.createElement("span");
+        preview.className =
+          "pointer-events-none absolute inset-y-0 hidden rounded-[0.2rem] border-2 border-dashed border-ring group-focus-visible/bar:block";
+        preview.dataset.candidate = "";
+        place(preview, { start: add, end: newEnd(day, add) });
+        bar.append(preview);
+        current = `add a period at ${display(add)}`;
+      } else {
+        current = count
+          ? `${describe(schedule[day][selected[day]])}` +
+            (count > 1 ? ` (${selected[day] + 1} of ${count})` : "")
+          : "no comfort periods";
+      }
+      bar.setAttribute("aria-label", `${DAY_NAMES[day]}, ${current}`);
+    };
+
+    const renderDay = (day: number) => {
+      const bar = bars[day];
+      bar.querySelectorAll("[data-period]").forEach((e) => e.remove());
+      schedule[day].forEach((s, index) => {
+        const period = document.createElement("span");
+        period.className =
+          "rounded-xs shadow group/period absolute inset-y-0 bg-primary group-data-editing/week:cursor-default group-focus-visible/bar:data-selected:outline-2 group-focus-visible/bar:data-selected:-outline-offset-4 group-focus-visible/bar:data-selected:outline-primary-foreground";
+        period.dataset.period = String(index);
+        period.innerHTML =
+          '<span class="absolute inset-y-0 left-0 w-2 cursor-ew-resize group-hover/period:bg-primary-foreground/40" data-handle="start"></span>' +
+          '<span class="absolute inset-y-0 right-0 w-2 cursor-ew-resize group-hover/period:bg-primary-foreground/40" data-handle="end"></span>';
+        place(period, s);
+        bar.prepend(period);
+      });
+      bar.querySelector("[data-description]")!.textContent = schedule[day]
+        .length
+        ? schedule[day].map(describe).join(", ")
+        : "No comfort periods";
+      highlight(day);
+    };
+    schedule.forEach((_, day) => renderDay(day));
+
+    const save = async (day: number, previous: Span[]) => {
+      week.dataset.saving = "";
+      const ok = await sendCommand(week, "/api/schedule", {
+        id: device,
+        day,
+        periods: toPeriods(schedule[day]),
+      });
+      if (!ok) {
+        schedule[day] = previous;
+        renderDay(day);
+      }
+      delete week.dataset.saving;
+    };
+
+    const drag = (
+      day: number,
+      span: Span,
+      edge: "start" | "end",
+      pointerId: number,
+      previous: Span[],
+      minimum = 0,
+    ) => {
+      const bar = bars[day];
+      const index = schedule[day].indexOf(span);
+      const period = bar.querySelector<HTMLElement>(
+        `[data-period="${index}"]`,
+      )!;
+      // Neighbours bound the edge; a whole-day period would read as an empty slot on the heater
+      const low =
+        edge === "start"
+          ? (schedule[day][index - 1]?.end ?? (span.end === DAY ? STEP : 0))
+          : span.start + minimum;
+      const high =
+        edge === "end"
+          ? (schedule[day][index + 1]?.start ??
+            (span.start === 0 ? DAY - STEP : DAY))
+          : span.end;
+      bar.setPointerCapture(pointerId);
+      week.dataset.dragging = "";
+      hideTime();
+
+      const labels = createLabels(bar);
+      labels.place(span);
+
+      const move = (event: PointerEvent) => {
+        const minute = Math.round(minuteAt(bar, event.clientX) / STEP) * STEP;
+        span[edge] = clamp(minute, low, high);
+        place(period, span);
+        labels.place(span);
+      };
+      const finish = () => {
+        bar.removeEventListener("pointermove", move);
+        bar.removeEventListener("pointerup", finish);
+        bar.removeEventListener("pointercancel", finish);
+        delete week.dataset.dragging;
+        labels.remove();
+        schedule[day] = schedule[day].filter((s) => s.end > s.start);
+        renderDay(day);
+        if (JSON.stringify(schedule[day]) !== JSON.stringify(previous))
+          save(day, previous);
+      };
+      bar.addEventListener("pointermove", move);
+      bar.addEventListener("pointerup", finish);
+      bar.addEventListener("pointercancel", finish);
+    };
+
+    bars.forEach((bar, day) =>
+      bar.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0 || event.pointerType === "touch") return;
+        if ("saving" in week.dataset) return;
+        event.preventDefault();
+        const previous = schedule[day].map((s) => ({ ...s }));
+        const target = event.target as Element;
+        const handle = target.closest<HTMLElement>("[data-handle]");
+        if (handle) {
+          const index = Number(handle.parentElement!.dataset.period);
+          const edge = handle.dataset.handle as "start" | "end";
+          return drag(
+            day,
+            schedule[day][index],
+            edge,
+            event.pointerId,
+            previous,
+          );
+        }
+        if (target.closest("[data-period]")) return;
+
+        const start = clamp(
+          Math.floor(minuteAt(bar, event.clientX) / STEP) * STEP,
+          0,
+          DAY - STEP,
+        );
+        const span = { start, end: start + STEP };
+        if (schedule[day].some((s) => s.start < span.end && span.start < s.end))
+          return;
+        if (schedule[day].length >= MAX_PERIODS) {
+          week.dispatchEvent(
+            new CustomEvent("command-error", {
+              bubbles: true,
+              detail: `A day can have at most ${MAX_PERIODS} comfort periods`,
+            }),
+          );
+          return;
+        }
+        schedule[day] = [...schedule[day], span].sort(
+          (a, b) => a.start - b.start,
+        );
+        renderDay(day);
+        drag(day, span, "end", event.pointerId, previous, STEP);
+      }),
+    );
+
+    const copy = (day: number) => schedule[day].map((s) => ({ ...s }));
+
+    // A new period starts an hour long, cut short by the next one, then opens in the drawer
+    const addPeriod = (day: number, start: number) => {
+      const end = newEnd(day, start);
+      if (end - start < STEP) return;
+      const previous = copy(day);
+      const span = { start, end };
+      schedule[day] = [...schedule[day], span].sort(
+        (a, b) => a.start - b.start,
+      );
+      selected[day] = schedule[day].indexOf(span);
+      renderDay(day);
+      save(day, previous);
+      edit(day, span);
+    };
+
+    // Opens the drawer for one period; its callbacks save through the same path as dragging
+    const edit = (day: number, span: Span) => {
+      const index = schedule[day].indexOf(span);
+      const detail: ScheduleEditRequest = {
+        day: DAY_NAMES[day],
+        start: span.start,
+        end: span.end,
+        low: schedule[day][index - 1]?.end ?? 0,
+        high: schedule[day][index + 1]?.start ?? DAY,
+        save: (start, end) => {
+          if (start === span.start && end === span.end) return;
+          const previous = copy(day);
+          span.start = start;
+          span.end = end;
+          renderDay(day);
+          save(day, previous);
+        },
+        remove: () => {
+          const previous = copy(day);
+          schedule[day] = schedule[day].filter((s) => s !== span);
+          renderDay(day);
+          save(day, previous);
+        },
+      };
+      document.dispatchEvent(new CustomEvent("schedule-edit", { detail }));
+    };
+
+    bars.forEach((bar, day) =>
+      bar.addEventListener("click", (event) => {
+        if (pointerEditing && (event as PointerEvent).pointerType !== "touch")
+          return;
+        if ("saving" in week.dataset) return;
+        const period = (event.target as Element).closest<HTMLElement>(
+          "[data-period]",
+        );
+        if (period)
+          return edit(day, schedule[day][Number(period.dataset.period)]);
+
+        if (schedule[day].length >= MAX_PERIODS) {
+          week.dispatchEvent(
+            new CustomEvent("command-error", {
+              bubbles: true,
+              detail: `A day can have at most ${MAX_PERIODS} comfort periods`,
+            }),
+          );
+          return;
+        }
+        addPeriod(
+          day,
+          clamp(
+            Math.floor(minuteAt(bar, event.clientX) / STEP) * STEP,
+            0,
+            DAY - STEP,
+          ),
+        );
+      }),
+    );
+
+    bars.forEach((bar, day) => {
+      bar.tabIndex = 0;
+      bar.setAttribute("role", "button");
+      bar.addEventListener("keydown", (event) => {
+        if ("saving" in week.dataset) return;
+        const count = schedule[day].length;
+        const add = freeStart(day);
+        const positions = count + (add === null ? 0 : 1);
+        if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+          if (!positions) return;
+          event.preventDefault();
+          const step = event.key === "ArrowRight" ? 1 : -1;
+          selected[day] = (selected[day] + step + positions) % positions;
+          highlight(day);
+          return;
+        }
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        if (selected[day] < count) edit(day, schedule[day][selected[day]]);
+        else if (add !== null) addPeriod(day, add);
+      });
+    });
+  }
+</script>

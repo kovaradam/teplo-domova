@@ -1,0 +1,22 @@
+---
+import Layout from "@/layouts/BaseLayout.astro";
+import { buttonVariants } from "@/components/ui/button";
+---
+
+<Layout
+  title="Page not found"
+  description="The page you're looking for doesn't exist."
+>
+  <section class="flex flex-col items-center py-24 text-center">
+    <h1 class="max-w-[17ch] text-4xl tracking-tight sm:text-5xl">
+      This page doesn't exist
+    </h1>
+    <p class="mt-6 max-w-[36ch] text-lg text-muted-foreground">
+      The page you're looking for may have moved, or the link that brought you
+      here might be out of date.
+    </p>
+    <a href="/" class={buttonVariants({ size: "lg", className: "mt-8 h-10 px-5" })}>
+      Back to home
+    </a>
+  </section>
+</Layout>

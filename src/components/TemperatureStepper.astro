@@ -1,0 +1,116 @@
+---
+import { TemperatureStepperView } from "@/components/TemperatureStepperView";
+import type { Setting } from "@/lib/cozytouch.ts";
+
+interface Props {
+  /** Device the setpoint belongs to. */
+  deviceId: string;
+  /** Current setpoint in °C. */
+  value: number;
+  /** Control size. */
+  size?: "default" | "small";
+  /** Temperature the control sets. Defaults to `target`. */
+  setting?: Setting;
+  /** Accessible label. Defaults to `Set temperature`. */
+  label?: string;
+  /** Lowest setpoint the device accepts. */
+  min?: number | null;
+  /** Highest setpoint the device accepts. */
+  max?: number | null;
+}
+
+const {
+  size = "default",
+  setting = "target",
+  label = "Set temperature",
+  ...rest
+} = Astro.props;
+---
+
+<TemperatureStepperView size={size} setting={setting} label={label} {...rest} />
+
+<script>
+  import { sendCommand } from "@/utils/command.ts";
+
+  type SettingChange = { device: string; setting: string; value: number };
+
+  const STEP = 0.5;
+  // Quick presses are sent as one change once the user pauses
+  const SETTLE_MS = 500;
+
+  for (const stepper of document.querySelectorAll<HTMLElement>("[data-stepper]")) {
+    const input = stepper.querySelector("input")!;
+    const { device, setting, min, max } = stepper.dataset;
+    // Last value the heater accepted, and the one on screen (ahead of it while a change is pending)
+    let value = Number(stepper.dataset.value);
+    let shown = value;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let sending = false;
+    let queued: number | null = null;
+    const show = () => (input.value = shown.toFixed(1));
+
+    const send = async (temperature: number) => {
+      if (sending) {
+        queued = temperature;
+        return;
+      }
+      sending = true;
+      const ok = await sendCommand(stepper, "/api/temperature", {
+        id: device,
+        setting,
+        temperature,
+      });
+      sending = false;
+      if (ok) {
+        value = temperature;
+        document.dispatchEvent(
+          new CustomEvent<SettingChange>("setting-change", {
+            detail: { device: device!, setting: setting!, value },
+          }),
+        );
+      } else if (queued === null) {
+        shown = value;
+        show();
+      }
+      if (queued !== null) {
+        const next = queued;
+        queued = null;
+        if (next !== value) send(next);
+      }
+    };
+
+    // Rounds to the step and clamps to the device's range; invalid input restores the shown value
+    const set = (next: number, delay = 0) => {
+      let temperature = Math.round(next / STEP) * STEP;
+      if (min) temperature = Math.max(Number(min), temperature);
+      if (max) temperature = Math.min(Number(max), temperature);
+      if (!Number.isFinite(temperature)) return show();
+      shown = temperature;
+      show();
+      clearTimeout(timer);
+      if (temperature === value && !sending) return;
+      timer = setTimeout(() => send(temperature), delay);
+    };
+
+    document.addEventListener("setting-change", (event) => {
+      const change = (event as CustomEvent<SettingChange>).detail;
+      if (change.device !== device || change.setting !== setting) return;
+      if (change.value === value) return;
+      value = shown = change.value;
+      show();
+    });
+
+    for (const button of stepper.querySelectorAll<HTMLButtonElement>("button")) {
+      button.addEventListener("click", () =>
+        set(shown + Number(button.dataset.step), SETTLE_MS),
+      );
+    }
+    input.addEventListener("keydown", (event) => {
+      if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+      // Step ourselves so the browser's own stepping (and its change event) never runs
+      event.preventDefault();
+      set(shown + (event.key === "ArrowUp" ? STEP : -STEP), SETTLE_MS);
+    });
+    input.addEventListener("change", () => set(parseFloat(input.value)));
+  }
+</script>

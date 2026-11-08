@@ -1,0 +1,133 @@
+---
+import TemperatureStepper from "@/components/TemperatureStepper.astro";
+import ScheduleWeek from "@/components/ScheduleWeek.astro";
+import { Alert } from "@/components/ui/alert";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldTitle,
+} from "@/components/ui/field";
+import type { Device, Mode } from "@/lib/cozytouch.ts";
+import { formatTemperature } from "@/utils/temperature.ts";
+
+interface Props {
+  /** Heater to show and control. */
+  device: Device;
+}
+
+const { device } = Astro.props;
+
+const MODES: Record<Mode, { title: string; description: string }> = {
+  program: { title: "Program", description: "Follows the weekly schedule." },
+  manual: { title: "Manual", description: "Keeps one temperature." },
+  off: { title: "Off", description: "The heater stays off." },
+};
+const ORDER: Mode[] = ["program", "manual", "off"];
+
+const modes = ORDER.filter((mode) => device.modes?.includes(mode));
+const target = device.adjustable ? device.target : null;
+---
+
+<article
+  class="flex flex-col gap-4"
+  data-heater
+  data-device={device.id}
+  data-mode={device.mode ?? ""}
+>
+  <div class="flex flex-col gap-1">
+    <h2 class="text-xl font-medium tracking-tight">{device.name}</h2>
+    <p class="text-sm text-muted-foreground">
+      Temperature in the room is {formatTemperature(device.measured)}
+    </p>
+  </div>
+  {modes.length > 0 ? (
+    <fieldset class="flex min-w-0 flex-col gap-3 has-[input[type=radio]:disabled]:opacity-60">
+      <legend class="sr-only">Mode</legend>
+      {modes.map((mode) => (
+        <div class="group/option rounded-lg border transition-colors not-has-[input[type=radio]:checked]:hover:bg-muted/50 has-[input[type=radio]:checked]:border-primary/30 has-[input[type=radio]:checked]:bg-primary/5 has-[input[type=radio]:focus-visible]:border-ring has-[input[type=radio]:focus-visible]:ring-3 has-[input[type=radio]:focus-visible]:ring-ring/50">
+          <label for={`mode-${device.id}-${mode}`} class="block">
+            <Field orientation="horizontal" className="p-2.5">
+              <input
+                id={`mode-${device.id}-${mode}`}
+                class="mt-px size-4 shrink-0 appearance-none rounded-full border border-input outline-none checked:border-primary checked:bg-primary-foreground checked:shadow-[inset_0_0_0_3px_var(--primary)] disabled:opacity-50"
+                type="radio"
+                name={`mode-${device.id}`}
+                value={mode}
+                checked={device.mode === mode}
+              />
+              <FieldContent>
+                <FieldTitle>{MODES[mode].title}</FieldTitle>
+                <FieldDescription>{MODES[mode].description}</FieldDescription>
+              </FieldContent>
+            </Field>
+          </label>
+          {mode === "manual" && target != null && (
+            <div class="hidden pr-2.5 pb-3 pl-8.5 group-has-checked/option:block">
+              <TemperatureStepper
+                deviceId={device.id}
+                value={target}
+                min={device.min}
+                max={device.max}
+              />
+            </div>
+          )}
+          {mode === "program" && device.schedule && (
+            <div class="hidden pr-2.5 pb-3 pl-8.5 group-has-checked/option:block">
+              <ScheduleWeek
+                schedule={device.schedule}
+                comfort={device.target}
+                eco={device.eco}
+                deviceId={device.id}
+                editable={device.schedulable}
+                comfortEditable={device.adjustable}
+                ecoEditable={device.ecoAdjustable}
+                max={device.max}
+              />
+            </div>
+          )}
+        </div>
+      ))}
+    </fieldset>
+  ) : target != null ? (
+    <TemperatureStepper
+      deviceId={device.id}
+      value={target}
+      min={device.min}
+      max={device.max}
+    />
+  ) : (
+    <p>Set {formatTemperature(device.target)}</p>
+  )}
+  <Alert variant="destructive" data-error hidden />
+</article>
+
+<script>
+  import { sendCommand } from "@/utils/command.ts";
+
+  for (const card of document.querySelectorAll<HTMLElement>("[data-heater]")) {
+    const error = card.querySelector<HTMLElement>("[data-error]")!;
+    const radios = card.querySelectorAll<HTMLInputElement>(
+      'input[type="radio"]',
+    );
+
+    card.addEventListener("command-error", (event) => {
+      error.textContent = (event as CustomEvent<string>).detail;
+      error.hidden = false;
+    });
+
+    for (const radio of radios) {
+      radio.addEventListener("change", async () => {
+        error.hidden = true;
+        radios.forEach((r) => (r.disabled = true));
+        const ok = await sendCommand(card, "/api/mode", {
+          id: card.dataset.device,
+          mode: radio.value,
+        });
+        if (ok) card.dataset.mode = radio.value;
+        else for (const r of radios) r.checked = r.value === card.dataset.mode;
+        radios.forEach((r) => (r.disabled = false));
+      });
+    }
+  }
+</script>
