@@ -28,8 +28,13 @@ if (session) {
 
 {expired ? (
   <p>
-    Your session has expired. <a href="/login" class="underline">Log in again</a>
-    <script is:inline>location.href = "/login";</script>
+    Your session has expired.{" "}
+    <a href="/login" class="underline">
+      Log in again
+    </a>
+    <script is:inline>
+      location.href = "/login";
+    </script>
   </p>
 ) : error ? (
   <Alert variant="destructive">
