@@ -17,6 +17,7 @@ const { email, error } = Astro.props;
 <form method="post" class="flex flex-col gap-5">
   <div class="flex flex-col gap-2">
     <Label htmlFor="email">Email</Label>
+    <p class="text-sm text-muted-foreground">Used in your Cozytouch account</p>
     <Input
       id="email"
       type="email"
@@ -44,5 +45,7 @@ const { email, error } = Astro.props;
       <AlertDescription className="text-destructive">{error}</AlertDescription>
     </Alert>
   )}
-  <Button type="submit" size="lg" className="h-10 w-full">Log in</Button>
+  <Button type="submit" size="lg" className="h-10 w-full">
+    Log in
+  </Button>
 </form>

@@ -19,7 +19,9 @@ export async function sendCommand(
     return false;
   }
   if (res.ok) return true;
-  const { error } = await res.json().catch(() => ({ error: res.statusText }));
+  const { error } = (await res
+    .json()
+    .catch(() => ({ error: res.statusText }))) as { error: string };
   source.dispatchEvent(
     new CustomEvent("command-error", { bubbles: true, detail: error }),
   );

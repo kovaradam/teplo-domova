@@ -11,7 +11,7 @@ if (Astro.request.method === "POST") {
   const form = await Astro.request.formData();
   email = String(form.get("email") ?? "");
   try {
-    startSession(
+    await startSession(
       Astro.cookies,
       await login(email, String(form.get("password") ?? "")),
     );
@@ -24,14 +24,11 @@ if (Astro.request.method === "POST") {
 ---
 
 <Layout title="Log in" header={false}>
-  <section class="mx-auto flex w-full max-w-sm flex-col gap-6 py-16">
-    <div class="flex flex-col gap-1">
-      <h1 class="flex items-center gap-2.5 text-2xl font-medium tracking-tight whitespace-nowrap">
-        <img src="/favicon.svg" alt="" width="28" height="28" class="size-7" />
-        <span class="font-pixel">{SITE_NAME}</span>
-      </h1>
-      <p class="text-sm text-muted-foreground">Use your Cozytouch account.</p>
-    </div>
+  <section class="mx-auto flex w-full max-w-sm flex-col gap-12 pt-40">
+    <h1 class="flex flex-col items-center gap-2.5 text-2xl font-medium tracking-tight whitespace-nowrap">
+      <img src="/favicon.svg" alt="" width="28" height="28" class="size-20" />
+      <span class="font-pixel">{SITE_NAME}</span>
+    </h1>
     <LoginForm email={email} error={error} />
   </section>
 </Layout>

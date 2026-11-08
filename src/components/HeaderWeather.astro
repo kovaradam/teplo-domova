@@ -1,14 +1,17 @@
 ---
 import OutsideWeather from "@/components/OutsideWeather.astro";
-import { loadDevices } from "@/lib/cozytouch.ts";
-import { getSession } from "@/lib/session.ts";
+import { listDevices } from "@/lib/cozytouch.ts";
+import { saveSession } from "@/lib/session.ts";
 import { getWeather, type Weather } from "@/lib/weather.ts";
 
-// Server island: the location comes from the device list, which may still be loading
-const session = getSession(Astro.cookies);
+// Server island: the location comes from the device list; until it has been saved once, load it here
+const { session } = Astro.locals;
 let weather: Weather | null = null;
 if (session) {
-  if (session.location === undefined) await loadDevices(session).catch(() => {});
+  if (session.location === undefined)
+    await listDevices(session)
+      .then(() => saveSession(session))
+      .catch(() => {});
   if (session.location) weather = await getWeather(session.location);
 }
 ---

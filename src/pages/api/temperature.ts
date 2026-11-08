@@ -4,7 +4,11 @@ import { withSession } from "@/lib/session.ts";
 
 export const POST: APIRoute = (context) =>
   withSession(context, async (session) => {
-    const { id, temperature, setting = "target" } = await context.request.json();
+    const { id, temperature, setting = "target" } = (await context.request.json()) as {
+      id?: unknown;
+      temperature?: unknown;
+      setting?: string;
+    };
     const command = SETTINGS[setting as Setting];
     if (
       typeof id !== "string" ||

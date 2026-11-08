@@ -1,10 +1,11 @@
 import { defineMiddleware } from "astro:middleware";
 import { getSession } from "@/lib/session.ts";
 
-// Device list needs a session; the login page doesn't make sense with one
-export const onRequest = defineMiddleware(({ url, cookies, redirect }, next) => {
-  const loggedIn = !!getSession(cookies);
-  if (url.pathname === "/" && !loggedIn) return redirect("/login");
-  if (url.pathname === "/login" && loggedIn) return redirect("/");
+// Loads the session once per request; the device list needs one, the login page doesn't make sense with one
+export const onRequest = defineMiddleware(async (context, next) => {
+  const { url, cookies, locals, redirect } = context;
+  locals.session = await getSession(cookies);
+  if (url.pathname === "/" && !locals.session) return redirect("/login");
+  if (url.pathname === "/login" && locals.session) return redirect("/");
   return next();
 });

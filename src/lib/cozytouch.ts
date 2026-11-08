@@ -34,10 +34,8 @@ export type Session = {
   overkizCookie: string | null;
   /** Account holder's name, when the token carries one. */
   name: string | null;
-  /** Home location from the Overkiz setup, once the device list has loaded. */
+  /** Home location for the weather, once the device list has loaded. */
   location?: Location | null;
-  /** Device list request in flight, shared by everything that needs it. */
-  loading?: Promise<Device[]>;
   /** Commands per mode for each Overkiz device, picked when the list was loaded. */
   modes: Map<string, Partial<Record<Mode, Command[]>>>;
   /** Command names each Overkiz device accepts. */
@@ -87,10 +85,14 @@ export async function login(email: string, password: string): Promise<Session> {
     throw new UpstreamError("Invalid email or password", 401);
   }
   await check(res, "Atlantic token");
-  const tokens = await res.json();
+  const tokens = (await res.json()) as {
+    access_token: string;
+    id_token?: string;
+  };
   const token: string = tokens.access_token;
   const name = nameFromTokens(tokens);
-  if (!name) console.info("No user name in the Cozytouch token; showing 'Menu'");
+  if (!name)
+    console.info("No user name in the Cozytouch token; showing 'Menu'");
   return {
     token,
     overkizCookie: await overkizLogin(token),
@@ -170,14 +172,6 @@ function magellanName(d: any, zoneNames: Map<string, string>, all: any[]) {
   return room || d.customName || d.name;
 }
 
-// The device list and the header weather load in parallel; they share one Cozytouch round trip
-export function loadDevices(session: Session) {
-  session.loading ??= listDevices(session).finally(() => {
-    session.loading = undefined;
-  });
-  return session.loading;
-}
-
 export async function listDevices(session: Session): Promise<Device[]> {
   const { token, overkizCookie } = session;
   const res = await check(
@@ -186,11 +180,10 @@ export async function listDevices(session: Session): Promise<Device[]> {
     }),
     "Magellan setup",
   );
-  const setup = await res.json();
+  const setup = (await res.json()) as any[];
   // The Cozytouch profile's address lives in Magellan; Overkiz has its own, possibly a default
   const profileLocation = locationOf(setup[0]?.address);
   let overkizLocation: Location | null = null;
-  console.log("Cozytouch profile address:", setup[0]?.address);
 
   // Room names: from the setup view if it has them, otherwise from the zones endpoint
   let zones = setup[0]?.zones;
@@ -238,9 +231,8 @@ export async function listDevices(session: Session): Promise<Device[]> {
       }),
       "Overkiz setup",
     );
-    const { devices: all, rootPlace, location } = await r.json();
+    const { devices: all, rootPlace, location } = (await r.json()) as any;
     overkizLocation = locationOf(location);
-    console.log("Overkiz setup location:", location);
     session.modes = new Map();
     session.commands = new Map();
 
@@ -295,11 +287,6 @@ export async function listDevices(session: Session): Promise<Device[]> {
     }
   }
   session.location = profileLocation ?? overkizLocation;
-  console.log(
-    "Weather location:",
-    profileLocation ? "Cozytouch profile" : overkizLocation ? "Overkiz setup" : "none",
-    session.location,
-  );
   return devices;
 }
 
@@ -349,7 +336,8 @@ export function scheduleCommand(day: unknown, periods: unknown): Command {
     previousEnd = end;
   }
   const slots: Period[] = periods.map(({ start, end }) => ({ start, end }));
-  while (slots.length < MAX_PERIODS) slots.push({ start: "00:00", end: "00:00" });
+  while (slots.length < MAX_PERIODS)
+    slots.push({ start: "00:00", end: "00:00" });
   return { name: dayCommand(DAYS[day]), parameters: [{ [DAYS[day]]: slots }] };
 }
 

@@ -179,7 +179,7 @@ const now = date.getHours() * 60 + date.getMinutes();
     readout.className =
       "pointer-events-none absolute top-0 rounded-[0.25rem] bg-foreground px-[0.4em] whitespace-nowrap text-card";
     readout.hidden = true;
-    week.querySelector("[data-hours]")!.append(readout);
+    week.querySelector("[data-hours]")!.appendChild(readout);
     const guide = document.createElement("span");
     guide.className =
       "pointer-events-none absolute inset-y-0 w-px bg-foreground/60";
@@ -191,7 +191,7 @@ const now = date.getHours() * 60 + date.getMinutes();
         minute < 90 ? "0" : minute > DAY - 90 ? "-100%" : "-50%";
       readout.hidden = false;
       guide.style.left = percent(minute);
-      bar.append(guide);
+      bar.appendChild(guide);
     };
     const minuteAt = (bar: HTMLElement, clientX: number) => {
       const rect = bar.getBoundingClientRect();
@@ -204,7 +204,7 @@ const now = date.getHours() * 60 + date.getMinutes();
         const label = document.createElement("span");
         label.className =
           "pointer-events-none absolute inset-y-0 flex items-center text-xs leading-none whitespace-nowrap tabular-nums";
-        bar.append(label);
+        bar.appendChild(label);
         return label;
       });
       return {
@@ -314,7 +314,7 @@ const now = date.getHours() * 60 + date.getMinutes();
           "pointer-events-none absolute inset-y-0 hidden rounded-[0.2rem] border-2 border-dashed border-ring group-focus-visible/bar:block";
         preview.dataset.candidate = "";
         place(preview, { start: add, end: newEnd(day, add) });
-        bar.append(preview);
+        bar.appendChild(preview);
         current = `add a period at ${display(add)}`;
       } else {
         current = count
@@ -337,7 +337,7 @@ const now = date.getHours() * 60 + date.getMinutes();
           '<span class="absolute inset-y-0 left-0 w-2 cursor-ew-resize group-hover/period:bg-primary-foreground/40" data-handle="start"></span>' +
           '<span class="absolute inset-y-0 right-0 w-2 cursor-ew-resize group-hover/period:bg-primary-foreground/40" data-handle="end"></span>';
         place(period, s);
-        bar.prepend(period);
+        bar.insertBefore(period, bar.firstChild);
       });
       bar.querySelector("[data-description]")!.textContent = schedule[day]
         .length

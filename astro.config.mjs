@@ -1,6 +1,6 @@
 // @ts-check
 import { defineConfig, fontProviders } from "astro/config";
-import node from "@astrojs/node";
+import cloudflare from "@astrojs/cloudflare";
 import react from "@astrojs/react";
 import tailwindcss from "@tailwindcss/vite";
 import { SITE_URL } from "./src/consts.ts";
@@ -8,7 +8,9 @@ import { SITE_URL } from "./src/consts.ts";
 export default defineConfig({
   site: SITE_URL,
   output: "server",
-  adapter: node({ mode: "standalone" }),
+  // Sessions are kept in D1 by the app (src/lib/session.ts), not in Astro's KV-backed sessions
+  adapter: cloudflare({ imageService: "passthrough" }),
+  session: false,
   integrations: [react()],
   fonts: [
     {
@@ -43,5 +45,9 @@ export default defineConfig({
       },
     },
   ],
-  vite: { plugins: [tailwindcss()] },
+  vite: {
+    plugins: [tailwindcss()],
+    // Pre-bundled at startup: found later, Vite re-optimizes mid-request and React breaks (Invalid hook call)
+    ssr: { optimizeDeps: { include: ["loading-dev"] } },
+  },
 });

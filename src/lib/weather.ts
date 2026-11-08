@@ -30,7 +30,10 @@ async function coordinates({ latitude, longitude, city, country }: Location) {
   const res = await fetch(
     `https://geocoding-api.open-meteo.com/v1/search?count=1&name=${encodeURIComponent(city)}${code}`,
   );
-  const place = res.ok ? (await res.json()).results?.[0] : null;
+  const found = res.ok
+    ? ((await res.json()) as { results?: { latitude: number; longitude: number }[] })
+    : null;
+  const place = found?.results?.[0];
   return place
     ? { latitude: round(place.latitude), longitude: round(place.longitude) }
     : null;
@@ -49,7 +52,9 @@ export async function getWeather(location: Location): Promise<Weather | null> {
         `https://api.open-meteo.com/v1/forecast?latitude=${point.latitude}&longitude=${point.longitude}&current=temperature_2m,weather_code,is_day`,
       );
       if (!res.ok) throw new Error(`Open-Meteo ${res.status}`);
-      const { current } = await res.json();
+      const { current } = (await res.json()) as {
+        current: { temperature_2m: number; weather_code: number; is_day: number };
+      };
       weather = {
         temperature: Math.round(current.temperature_2m),
         code: current.weather_code,

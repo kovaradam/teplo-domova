@@ -25,3 +25,8 @@ pnpm-debug.log*
 
 # local agent settings
 .claude/settings.local.json
+
+# wrangler
+.wrangler/
+worker-configuration.d.ts
+.dev.vars

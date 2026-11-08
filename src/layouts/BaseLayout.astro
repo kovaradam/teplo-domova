@@ -4,7 +4,6 @@ import { Font } from "astro:assets";
 import { UserMenu } from "@/components/UserMenu";
 import HeaderWeather from "@/components/HeaderWeather.astro";
 import { SITE_DESCRIPTION, SITE_NAME } from "@/consts.ts";
-import { getSession } from "@/lib/session.ts";
 
 interface Props {
   /** Page title. The site name is appended. */
@@ -16,7 +15,7 @@ interface Props {
 }
 
 const { title, description = SITE_DESCRIPTION, header = true } = Astro.props;
-const session = getSession(Astro.cookies);
+const { session } = Astro.locals;
 ---
 
 <!doctype html>
@@ -44,10 +43,9 @@ const session = getSession(Astro.cookies);
     >
       Skip to content
     </a>
+    {/* The blur is on ::before: backdrop-filter on the header would trap the fixed menu button inside it */}
     {header && (
-      <header
-        class="sticky top-0 z-40 bg-background pr-[max(1.5rem,env(safe-area-inset-right))] pl-[max(1.5rem,env(safe-area-inset-left))]"
-      >
+      <header class="sticky top-0 z-40 isolate before:absolute before:inset-0 before:-z-10 before:bg-background/40 before:backdrop-blur pr-[max(1.5rem,env(safe-area-inset-right))] pl-[max(1.5rem,env(safe-area-inset-left))]">
         <div class="mx-auto grid h-16 max-w-[100ch] grid-cols-[auto_1fr_auto] content-center items-baseline gap-4 sm:grid-cols-[1fr_auto_1fr]">
           <a
             href="/"
@@ -65,7 +63,7 @@ const session = getSession(Astro.cookies);
           <div class="justify-self-end sm:justify-self-auto">
             {session && <HeaderWeather server:defer />}
           </div>
-          <div class="justify-self-end max-sm:fixed max-sm:right-4 max-sm:bottom-[calc(1rem+env(safe-area-inset-bottom))] max-sm:z-50">
+          <div class="justify-self-end max-sm:fixed max-sm:right-[max(1rem,env(safe-area-inset-right))] max-sm:bottom-[calc(1rem+env(safe-area-inset-bottom))] max-sm:z-50">
             {session && <UserMenu client:load name={session.name} />}
           </div>
         </div>
@@ -81,7 +79,8 @@ const session = getSession(Astro.cookies);
       </div>
     </main>
     <script>
-      if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");
+      if ("serviceWorker" in navigator)
+        navigator.serviceWorker.register("/sw.js");
     </script>
   </body>
 </html>

@@ -7,16 +7,18 @@
     "node": ">=22.23.4"
   },
   "scripts": {
-    "dev": "astro dev --host",
-    "check": "astro check",
-    "build": "astro build",
+    "dev": "wrangler types && astro dev --host",
+    "check": "wrangler types && astro check",
+    "build": "wrangler types && astro build",
     "preview": "astro preview",
+    "deploy": "npm run build && wrangler deploy && wrangler d1 migrations apply DB --remote",
+    "db:migrate": "wrangler d1 migrations apply DB --local",
     "astro": "astro",
     "format": "prettier --write ."
   },
   "dependencies": {
     "@astrojs/check": "^0.9.12",
-    "@astrojs/node": "^11.1.9",
+    "@astrojs/cloudflare": "14.4.2",
     "@astrojs/react": "7.1.1",
     "@fontsource/geist-pixel": "5.3.0",
     "@tailwindcss/vite": "4.3.3",
@@ -38,6 +40,7 @@
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "prettier": "^3.9.10",
-    "prettier-plugin-astro": "^1.1.2"
+    "prettier-plugin-astro": "^1.1.2",
+    "wrangler": "4.152.0"
   }
 }
