@@ -33,7 +33,19 @@ The first deploy creates the `teplo-domova` D1 database and writes its `database
 into `wrangler.jsonc`; commit that change. The app is then served on
 `https://teplo-domova.<your-subdomain>.workers.dev`, which also makes it installable as an app.
 
-Sessions last 7 days from the last visit and survive deploys. `wrangler types` runs before
+Set the key that encrypts stored passwords once; it stays across deploys:
+
+```sh
+openssl rand -base64 32 | npx wrangler secret put SESSION_SECRET
+```
+
+To deploy on every push, connect the repository to the Worker in the Cloudflare dashboard
+(Workers Builds) with:
+
+- Build command: `npm run build`
+- Deploy command: `npx wrangler deploy && npx wrangler d1 migrations apply DB --remote`
+
+Sessions last 400 days from the last visit and survive deploys. `wrangler types` runs before
 `dev`, `check` and `build` to regenerate `worker-configuration.d.ts` (the binding types).
 
 ## Installing as an app
