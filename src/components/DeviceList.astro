@@ -2,7 +2,7 @@
 import HeaterCard from "@/components/HeaterCard.astro";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { listDevices, UpstreamError, type Device } from "@/lib/cozytouch.ts";
-import { endSession, saveSession } from "@/lib/session.ts";
+import { endSession, saveSession, withRelogin } from "@/lib/session.ts";
 
 // Rendered as a server island, so the page shows its loading fallback until this is ready
 const { session } = Astro.locals;
@@ -11,7 +11,7 @@ let error = "";
 let expired = !session;
 if (session) {
   try {
-    devices = await listDevices(session);
+    devices = await withRelogin(session, () => listDevices(session));
     // Keeps the device commands and home location for later requests
     await saveSession(session);
   } catch (e) {

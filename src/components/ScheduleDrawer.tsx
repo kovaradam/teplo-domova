@@ -10,6 +10,7 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { Label } from "@/components/ui/label";
+import { useInertPage } from "@/components/useInertPage";
 import {
   NativeSelect,
   NativeSelectOption,
@@ -56,16 +57,7 @@ export function ScheduleDrawer() {
     return () => document.removeEventListener("schedule-edit", onEdit);
   }, []);
 
-  // Radix's aria-hidden leaves any container holding a <script> readable, which is every Astro
-  // container here; inert hides the page from screen readers and keeps focus out of it
-  useEffect(() => {
-    if (!open) return;
-    const page = [
-      ...document.querySelectorAll<HTMLElement>("body > header, body > main"),
-    ];
-    page.forEach((element) => (element.inert = true));
-    return () => page.forEach((element) => (element.inert = false));
-  }, [open]);
+  useInertPage(open);
 
   const low = request?.low ?? 0;
   const high = request?.high ?? DAY;

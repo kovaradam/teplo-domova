@@ -10,11 +10,12 @@ let error = "";
 if (Astro.request.method === "POST") {
   const form = await Astro.request.formData();
   email = String(form.get("email") ?? "");
+  const password = String(form.get("password") ?? "");
   try {
-    await startSession(
-      Astro.cookies,
-      await login(email, String(form.get("password") ?? "")),
-    );
+    await startSession(Astro.cookies, await login(email, password), {
+      email,
+      password,
+    });
     return Astro.redirect("/", 303);
   } catch (e) {
     console.error("POST /login:", e);

@@ -34,6 +34,8 @@ export type Session = {
   overkizCookie: string | null;
   /** Account holder's name, when the token carries one. */
   name: string | null;
+  /** Login for renewing the token when it expires; the password is encrypted (see session.ts). */
+  credentials?: { email: string; password: string };
   /** Home location for the weather, once the device list has loaded. */
   location?: Location | null;
   /** Commands per mode for each Overkiz device, picked when the list was loaded. */
