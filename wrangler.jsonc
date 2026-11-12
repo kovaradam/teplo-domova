@@ -1,16 +1,21 @@
 {
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "teplo-domova",
-  "main": "@astrojs/cloudflare/entrypoints/server",
-  "compatibility_date": "2026-10-20",
-  "compatibility_flags": ["nodejs_compat"],
-  // Sessions. No database_id: the first `wrangler deploy` creates the database and writes it here
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "teplo-domova",
-      "migrations_dir": "migrations"
-    }
-  ],
-  "observability": { "enabled": true }
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "teplo-domova",
+	"main": "@astrojs/cloudflare/entrypoints/server",
+	"compatibility_date": "2026-10-20",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	// Sessions. No database_id: the first `wrangler deploy` creates the database and writes it here
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "teplo-domova",
+			"migrations_dir": "migrations",
+			"database_id": "349f9119-ed68-4292-9a5f-709304a49026"
+		}
+	],
+	"observability": {
+		"enabled": true
+	}
 }
