@@ -147,6 +147,7 @@ const now = date.getHours() * 60 + date.getMinutes();
     toTime,
     type ScheduleEditRequest,
   } from "@/utils/schedule.ts";
+  import { setupEach } from "@/utils/refresh.ts";
 
   type Span = { start: number; end: number };
 
@@ -158,9 +159,7 @@ const now = date.getHours() * 60 + date.getMinutes();
   const clamp = (v: number, low: number, high: number) =>
     Math.min(high, Math.max(low, v));
 
-  for (const week of document.querySelectorAll<HTMLElement>(
-    "[data-week][data-schedule]",
-  )) {
+  setupEach("[data-week][data-schedule]", (week) => {
     const bars = [...week.querySelectorAll<HTMLElement>("[data-bar]")];
     const { device } = week.dataset;
     const schedule: Span[][] = (
@@ -262,7 +261,7 @@ const now = date.getHours() * 60 + date.getMinutes();
       });
     }
 
-    if (!("editable" in week.dataset)) continue;
+    if (!("editable" in week.dataset)) return;
     // Mouse and trackpad drag the edges; touch screens tap and edit in the drawer
     if (pointerEditing) week.dataset.editing = "";
     else week.dataset.touchEditing = "";
@@ -556,5 +555,5 @@ const now = date.getHours() * 60 + date.getMinutes();
         else if (add !== null) addPeriod(day, add);
       });
     });
-  }
+  });
 </script>

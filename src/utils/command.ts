@@ -9,11 +9,14 @@ export async function sendCommand(
   url: string,
   body: Record<string, unknown>,
 ) {
+  // Counted on <html> so content refreshes wait for commands in flight
+  const root = document.documentElement.dataset;
+  root.pending = String(Number(root.pending ?? 0) + 1);
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
-  });
+  }).finally(() => (root.pending = String(Number(root.pending) - 1)));
   if (res.status === 401) {
     location.href = "/login";
     return false;

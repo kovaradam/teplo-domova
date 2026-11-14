@@ -104,8 +104,9 @@ const target = device.adjustable ? device.target : null;
 
 <script>
   import { sendCommand } from "@/utils/command.ts";
+  import { setupEach } from "@/utils/refresh.ts";
 
-  for (const card of document.querySelectorAll<HTMLElement>("[data-heater]")) {
+  setupEach("[data-heater]", (card) => {
     const error = card.querySelector<HTMLElement>("[data-error]")!;
     const radios = card.querySelectorAll<HTMLInputElement>(
       'input[type="radio"]',
@@ -129,5 +130,5 @@ const target = device.adjustable ? device.target : null;
         radios.forEach((r) => (r.disabled = false));
       });
     }
-  }
+  });
 </script>

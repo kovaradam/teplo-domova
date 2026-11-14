@@ -60,7 +60,10 @@ const { session } = Astro.locals;
             />
             {SITE_NAME}
           </a>
-          <div class="justify-self-end sm:justify-self-auto">
+          <div
+            class="justify-self-end sm:justify-self-auto"
+            data-refresh="/partials/weather"
+          >
             {session && <HeaderWeather server:defer />}
           </div>
           <div class="justify-self-end max-sm:fixed max-sm:right-[max(1rem,env(safe-area-inset-right))] max-sm:bottom-[calc(1rem+env(safe-area-inset-bottom))] max-sm:z-50">
@@ -79,8 +82,11 @@ const { session } = Astro.locals;
       </div>
     </main>
     <script>
+      import { startRefreshing } from "@/utils/refresh.ts";
+
       if ("serviceWorker" in navigator)
         navigator.serviceWorker.register("/sw.js");
+      startRefreshing();
     </script>
   </body>
 </html>

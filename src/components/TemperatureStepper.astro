@@ -31,6 +31,7 @@ const {
 
 <script>
   import { sendCommand } from "@/utils/command.ts";
+  import { setupEach } from "@/utils/refresh.ts";
 
   type SettingChange = { device: string; setting: string; value: number };
 
@@ -38,7 +39,7 @@ const {
   // Quick presses are sent as one change once the user pauses
   const SETTLE_MS = 500;
 
-  for (const stepper of document.querySelectorAll<HTMLElement>("[data-stepper]")) {
+  setupEach("[data-stepper]", (stepper) => {
     const input = stepper.querySelector("input")!;
     const { device, setting, min, max } = stepper.dataset;
     // Last value the heater accepted, and the one on screen (ahead of it while a change is pending)
@@ -92,15 +93,21 @@ const {
       timer = setTimeout(() => send(temperature), delay);
     };
 
-    document.addEventListener("setting-change", (event) => {
+    const sync = (event: Event) => {
+      // Refreshed content replaced this stepper
+      if (!stepper.isConnected)
+        return document.removeEventListener("setting-change", sync);
       const change = (event as CustomEvent<SettingChange>).detail;
       if (change.device !== device || change.setting !== setting) return;
       if (change.value === value) return;
       value = shown = change.value;
       show();
-    });
+    };
+    document.addEventListener("setting-change", sync);
 
-    for (const button of stepper.querySelectorAll<HTMLButtonElement>("button")) {
+    for (const button of stepper.querySelectorAll<HTMLButtonElement>(
+      "button",
+    )) {
       button.addEventListener("click", () =>
         set(shown + Number(button.dataset.step), SETTLE_MS),
       );
@@ -112,5 +119,5 @@ const {
       set(shown + (event.key === "ArrowUp" ? STEP : -STEP), SETTLE_MS);
     });
     input.addEventListener("change", () => set(parseFloat(input.value)));
-  }
+  });
 </script>

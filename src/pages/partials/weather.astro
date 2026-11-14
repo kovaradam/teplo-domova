@@ -1,0 +1,9 @@
+---
+// The header weather on its own, fetched again to keep the page current
+import HeaderWeather from "@/components/HeaderWeather.astro";
+
+export const partial = true;
+Astro.response.headers.set("Cache-Control", "no-store");
+---
+
+<HeaderWeather />
