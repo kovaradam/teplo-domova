@@ -86,6 +86,11 @@
   html {
     @apply font-sans;
   }
+  /* No double-tap zoom on buttons, so quick taps on the steppers don't zoom the page */
+  button,
+  [role="button"] {
+    @apply touch-manipulation;
+  }
   body {
     @apply bg-background text-foreground antialiased;
   }
